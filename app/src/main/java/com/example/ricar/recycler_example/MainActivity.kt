@@ -1,7 +1,6 @@
 package com.example.ricar.recycler_example
 
 import android.content.Context
-import android.content.Intent
 import android.graphics.Color
 import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
@@ -33,15 +32,24 @@ class MainActivity : AppCompatActivity() {
         exampleAdapter.setClickListener(object: ExampleAdapter.ItemClickListener {
             override fun onItemClick(view: View, position: Int) {
                 Log.d("Hello", "Clicked Position: $position")
+
+                if (exampleAdapter.editModeEnabled)
+                {
+                    exampleAdapter.items[position].isHighlighted = !exampleAdapter.items[position].isHighlighted
+                    exampleAdapter.items[position].isChecked = !exampleAdapter.items[position].isChecked
+                    exampleAdapter.notifyDataSetChanged()
+                }
             }
 
             override fun onItemLongClick(view: View, position: Int) {
-                super.onItemLongClick(view, position)
                 Log.d("Hello", "Long Clicked Position: $position")
-                exampleAdapter.items[position].isHighlighted = true
-                exampleAdapter.items[position].isChecked = true
-                exampleAdapter.shouldShowCheckBox = true
-                exampleAdapter.notifyDataSetChanged()
+                if (!exampleAdapter.editModeEnabled)
+                {
+                    exampleAdapter.items[position].isHighlighted = true
+                    exampleAdapter.items[position].isChecked = true
+                    exampleAdapter.editModeEnabled = true
+                    exampleAdapter.notifyDataSetChanged()
+                }
             }
 
             override fun onItemCheckboxClick(view: View, position: Int, isChecked: Boolean) {
@@ -60,19 +68,25 @@ class MainActivity : AppCompatActivity() {
             }
             override fun onMove(recyclerView: RecyclerView?, viewHolder: RecyclerView.ViewHolder?, target: RecyclerView.ViewHolder?): Boolean {
                 // get the viewHolder's and target's positions in your adapter data, swap them
-                if (recyclerView!= null && viewHolder != null && target != null)
-                {
+                if (recyclerView!= null) {
                     val customAdapter = recyclerView.adapter as ExampleAdapter
-                    Collections.swap(customAdapter.items, viewHolder.adapterPosition, target.adapterPosition)
-                    recyclerView.adapter.notifyItemMoved(viewHolder.adapterPosition, target.adapterPosition)
+
+                    if (customAdapter.editModeEnabled && viewHolder != null && target != null) {
+                        Collections.swap(customAdapter.items, viewHolder.adapterPosition, target.adapterPosition)
+                        recyclerView.adapter.notifyItemMoved(viewHolder.adapterPosition, target.adapterPosition)
+                        return true
+                    }
                 }
-                return true
+                return false
             }
 
             override fun getMovementFlags(recyclerView: RecyclerView?, viewHolder: RecyclerView.ViewHolder?): Int {
-                return makeFlag(ItemTouchHelper.ACTION_STATE_DRAG, ItemTouchHelper.DOWN or ItemTouchHelper.UP or ItemTouchHelper.START or ItemTouchHelper.END)
+                return makeFlag(ItemTouchHelper.ACTION_STATE_DRAG, ItemTouchHelper.START or ItemTouchHelper.END or ItemTouchHelper.RIGHT or ItemTouchHelper.LEFT or ItemTouchHelper.DOWN or ItemTouchHelper.UP)
             }
 
+            override fun isLongPressDragEnabled(): Boolean {
+                return true
+            }
         })
         touchHelper.attachToRecyclerView(exampleRecycler)
     }
@@ -80,7 +94,7 @@ class MainActivity : AppCompatActivity() {
     private class ExampleAdapter(val context: Context, val items: List<ExampleRecyclerDataObject>): RecyclerView.Adapter<ExampleAdapter.ExampleViewHolder>() {
 
         private var clickListener: ItemClickListener? = null
-        var shouldShowCheckBox: Boolean = false
+        var editModeEnabled: Boolean = false
 
         override fun onBindViewHolder(holder: ExampleViewHolder, position: Int) {
             holder.bindView(items[position])
@@ -132,7 +146,7 @@ class MainActivity : AppCompatActivity() {
                     clickListener!!.onItemLongClick(itemView, adapterPosition)
                     return true
                 }
-                return false
+                return true
             }
 
             override fun onCheckedChanged(button: CompoundButton?, isChecked: Boolean) {
@@ -141,7 +155,7 @@ class MainActivity : AppCompatActivity() {
                     clickListener!!.onItemCheckboxClick(itemView, adapterPosition, isChecked)
                 }
             }
-
+            
             fun bindView(data: ExampleRecyclerDataObject)
             {
                 this.title.text = data.title
@@ -158,7 +172,7 @@ class MainActivity : AppCompatActivity() {
                 else
                     itemView.setBackgroundColor(Color.parseColor("#DDDDDD"))
 
-                if (shouldShowCheckBox)
+                if (editModeEnabled)
                 {
                     checkbox.visibility = View.VISIBLE
                 }
